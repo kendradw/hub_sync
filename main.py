@@ -149,7 +149,7 @@ class HubspotEmployeeSync():
             if division in locations:
                 return region
         
-        return "NOT FOUND"
+        return ""
      
     def get_hubspot_sheet_data(self):
         """Retrieves the current sheet data for the hubspot Employee sheet for update."""
