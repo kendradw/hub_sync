@@ -18,12 +18,13 @@ class HubspotEmployeeSync():
         self.BAMBOO_DATA_SS_ID = config.get("bamboo_data_ss_id")
         self.HUBSPOT_SS_ID = config.get("hubspot_ss_id")
         self.regions = config.get("regions")
+        self.HB_DB_COMPANY_ID = config.get("HB_DB_COMPANY_ID")
 
         #Tokens
         self.ss_token = crypter.decrypt_from_config("ss_automation_token")
         grid.token = self.ss_token
 
-        #clients
+        #Clients
         self.hub_client = HubspotClient()
 
 
@@ -37,6 +38,7 @@ class HubspotEmployeeSync():
         updated = self.hub_client.batch_update(update)
         deleted = self.hub_client.batch_delete(delete)
         self.sync_to_sheet(created, updated, deleted, unchanged)
+        #TODO: verify they the same with self.verify()
         self.log.info("SYNC COMPLETE")
 
     def compare_employee_lists(self, hubspot, bamboo):
@@ -48,7 +50,6 @@ class HubspotEmployeeSync():
             if hub_contact:
                 self.log.debug(f"{email} exists") #if they exist check for updates
                 bamb_contact.hub_id = hub_contact.hub_id #add the hubspot id, 
-                hub_contact.row_id = bamb_contact.row_id #add the row_id to hubspot list
                 if hub_contact != bamb_contact: 
                     update.append(bamb_contact) #add the employee object to update
                 else:
@@ -61,6 +62,7 @@ class HubspotEmployeeSync():
         self.log.info(f"Found {len(create)} employees to add: \n{create}\n")
         self.log.info(f"Found {len(update)} employees to update: \n{update}\n")
         self.log.info(f"Found {len(delete)} emplopyees to remove: \n{delete}\n")
+        self.log.info(f"Found {len(unchanged)} employees with no changes \n{unchanged}")
         return create, update, delete, unchanged
 
     def sync_to_sheet(self, created, updated, deleted, unchanged):
@@ -96,6 +98,13 @@ class HubspotEmployeeSync():
             sheet.post_new_rows(new)
         else:
             self.log.info("No New to post")
+
+    def verify(self):
+        """Verifies the employee list from Hubspot matches the employee list in bamboo"""
+        hub = self.hub_client.get_employees()
+        ss = self.ss_employees
+        #TODO
+
 #endregion
 
 #region ---- Smartsheet Data ----
@@ -114,14 +123,13 @@ class HubspotEmployeeSync():
         employees = []
         for _, row in dataframe.iterrows():
             employee = Employee(
-                row_id=row["id"],
                 first_name = row["preferredName"] if pd.notna(row["preferredName"]) and row["preferredName"] else row["firstName"],
                 last_name = row["lastName"],
                 email = row["emailAsText"].lower(),
                 state = row["location"],
                 region = self._normalize_region(row["location"], row["division"]),
                 marketing_classification = "Dowbuilt Employee",
-                company = "Dowbuilt"
+                company = str(self.HB_DB_COMPANY_ID)
             )
             employees.append(employee)
         self.log.info(f"Converted {len(employees)} Bamboo employees")
@@ -148,6 +156,7 @@ class HubspotEmployeeSync():
         sheet = grid(self.HUBSPOT_SS_ID)
         sheet.fetch_content()
         sheet.df
+
 #endregion
 
 #region ---- Helper methods ----

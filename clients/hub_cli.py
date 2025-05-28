@@ -71,7 +71,7 @@ class HubspotClient():
                     "value": "Dowbuilt Employee"
                 }]
             }],
-            "properties": ["email", "firstname", "lastname", "state", "dowbuilt_region", "marketing_classification", "company"],
+            "properties": ["email", "firstname", "lastname", "state", "dowbuilt_region", "marketing_classification", "company", "associatedcompanyid"],
             "limit": 100  # Max per page
             }
         results = self.contact_search(search_request)
@@ -117,6 +117,7 @@ class HubspotClient():
             except ApiException as e:
                 self.log.error(f"Exception when calling batch_api->create: {e}")
         return created
+    
     def batch_update(self, employees:list[Employee]):
         updated = [] 
         for chunk in self.chunk_list(employees, 100):
@@ -149,7 +150,7 @@ class HubspotClient():
                 state = employee.get("properties").get("state"),
                 region = employee.get("properties", {}).get("dowbuilt_region"),
                 marketing_classification = employee.get("properties", {}).get("marketing_classification"), #should be everyone in this list
-                company = employee.get("properties", {}).get("company")
+                company = employee.get("properties", {}).get("associatedcompanyid")
             )
             employees.append(new_employee)
         self.log.info(f"Converted {len(employees)} employee contacts")
@@ -167,7 +168,7 @@ class HubspotClient():
                 "state": employee.state,
                 "dowbuilt_region": employee.region,
                 "marketing_classification": employee.marketing_classification,
-                "company": employee.company,
+                "associatedcompanyid":  self.HB_DB_COMPANY_ID,
             }
         )
     
@@ -182,7 +183,7 @@ class HubspotClient():
                 "state": employee.state,
                 "dowbuilt_region": employee.region,
                 "marketing_classification": employee.marketing_classification,
-                "company": employee.company,
+                "associatedcompanyid": self.HB_DB_COMPANY_ID,
             }
         }
     #endregion

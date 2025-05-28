@@ -9,7 +9,6 @@ class Employee:
     region:str
     marketing_classification:str
     company:str
-    row_id:int = None
     hub_id:int = None
 
 
