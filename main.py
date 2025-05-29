@@ -37,7 +37,7 @@ class HubspotEmployeeSync():
         created = self.hub_client.batch_create_employees(create)
         updated = self.hub_client.batch_update(update)
         deleted = self.hub_client.batch_delete(delete)
-        self.sync_to_sheet(created, updated, deleted, unchanged)
+        self.post_to_ss(created, updated, deleted, unchanged)
         #TODO: verify they the same with self.verify()
         self.log.info("SYNC COMPLETE")
 
@@ -65,7 +65,7 @@ class HubspotEmployeeSync():
         self.log.info(f"Found {len(unchanged)} employees with no changes \n{unchanged}")
         return create, update, delete, unchanged
 
-    def sync_to_sheet(self, created, updated, deleted, unchanged):
+    def post_to_ss(self, created, updated, deleted, unchanged):
         """Syncs updates to Hubspot Log sheet"""
         sheet = grid(self.HUBSPOT_SS_ID)
         sheet.fetch_content()
@@ -83,6 +83,7 @@ class HubspotEmployeeSync():
 
         new = []
         update = []
+        update.append(self.execution_metadata()) #add metadata row information
         for row in all_rows:
             if row.get("Email", "").lower() in email_lc_list:
                 update.append(row)
@@ -98,12 +99,6 @@ class HubspotEmployeeSync():
             sheet.post_new_rows(new)
         else:
             self.log.info("No New to post")
-
-    def verify(self):
-        """Verifies the employee list from Hubspot matches the employee list in bamboo"""
-        hub = self.hub_client.get_employees()
-        ss = self.ss_employees
-        #TODO
 
 #endregion
 
@@ -172,19 +167,36 @@ class HubspotEmployeeSync():
         Returns: dict as {email:Employee}"""
         return {emp.email:emp for emp in employees}
     
-    def build_row(self, employee:Employee, type:str, update_time:datetime, removed=False):
-        """build row to post to SS"""
+    def build_row(self, employee:Employee, action:str, update_time:datetime, removed=False):
+        """build row to post to SS
+        Params:
+        action: String action of either : Updated, Archived, Created
+        removed: Bool for "Removed" column checkbox"""
         return {
             "First Name":employee.first_name,
             "Last Name": employee.last_name,
             "State": employee.state,
             "Region": employee.region,
             "Email": employee.email,
-            "Comments": f"{type}",
+            "Comments": f"{action}",
             "Latest Update": update_time,
             "Removed": removed,
         }
-
+    
+    def _get_counts(self):
+        """Gets employee count from both sources"""
+        hub = self.hub_client.get_employees()
+        return len(hub), len(self.ss_employees)
+    
+    def execution_metadata(self):
+        """Generates metadata about current execution and formats to Employee object for posting to SS"""
+        hub, bb = self._get_counts()
+        return {
+            "Email": "Execution Metadata:",
+            "Latest Update": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "Comments": f"{hub} hubspot employees synced from {bb} Bamboo employees",
+        }
+    
  #endregion
 
 def main():
